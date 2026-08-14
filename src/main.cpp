@@ -7,24 +7,27 @@ int main() {
     const int screenHeight = 600;
     const float radius1 = 30.0f;
     const float radius2 = 20.0f;
+    const float speed = 5.0f;
     InitWindow(screenWidth, screenHeight, "Physics Engine - Raylib Active");
 
     SetTargetFPS(60);
 
     Vector2 ballPos = { 0, 0 };
-    Vector2 ball2Pos = { 0, 0 };
+    Vector2 ball2Pos = { 100, 100 };
+
 
     while (!WindowShouldClose()) { 
+        bool collides = Collides(radius1, radius2, speed, ballPos.x, ball2Pos.x, ballPos.y, ball2Pos.y);
 
-        if (IsKeyDown(KEY_RIGHT)) ballPos.x += 5.0f;
-        if (IsKeyDown(KEY_LEFT))  ballPos.x -= 5.0f;
-        if (IsKeyDown(KEY_UP))    ballPos.y -= 5.0f;
-        if (IsKeyDown(KEY_DOWN))  ballPos.y += 5.0f;
+        if (IsKeyDown(KEY_RIGHT) && !collides) ballPos.x += speed;
+        if (IsKeyDown(KEY_LEFT) && !collides)  ballPos.x -= speed;
+        if (IsKeyDown(KEY_UP) && !collides)    ballPos.y -= speed;
+        if (IsKeyDown(KEY_DOWN) && !collides)  ballPos.y += speed;
 
-        if (IsKeyDown(KEY_D))  ball2Pos.x += 5.0f;
-        if (IsKeyDown(KEY_A))  ball2Pos.x -= 5.0f;
-        if (IsKeyDown(KEY_W))  ball2Pos.y -= 5.0f;
-        if (IsKeyDown(KEY_S))  ball2Pos.y += 5.0f;
+        if (IsKeyDown(KEY_D) && !collides)  ball2Pos.x += speed;
+        if (IsKeyDown(KEY_A) && !collides)  ball2Pos.x -= speed;
+        if (IsKeyDown(KEY_W) && !collides)  ball2Pos.y -= speed;
+        if (IsKeyDown(KEY_S) && !collides)  ball2Pos.y += speed;
 
         BeginDrawing();
             ClearBackground(DARKGRAY);
@@ -32,13 +35,14 @@ int main() {
             DrawText("My physics engine! Use Arrow Keys to Move", 10, 10, 20, RAYWHITE);
             DrawCircleV(ballPos, radius1, RED);
             DrawCircleV(ball2Pos, radius2, BLUE);
-            DrawRectangle(0, 500, 800, 100, BLACK);
+            // DrawRectangle(0, 500, 800, 100, BLACK);
 
             DrawFPS(10, 570);
         EndDrawing();
 
-        if(Intercepting(radius1, radius2, ballPos.x, ball2Pos.x, ballPos.y, ball2Pos.y)) std::cout << "Intercepting" << std::endl;
-        else std::cout << "Not intercepting" << std::endl;
+        if(Collides(radius1, radius2, speed, ballPos.x, ball2Pos.x, ballPos.y, ball2Pos.y)) std::cout << "Colliding" << std::endl;
+        else std::cout << "Not colliding" << std::endl;
+        // collides = false;
     }
 
     CloseWindow();
