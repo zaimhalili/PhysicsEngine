@@ -7,7 +7,8 @@ int main() {
     const int screenHeight = 600;
     const float radius1 = 30.0f;
     const float radius2 = 20.0f;
-    const float speed = 5.0f;
+    const float speed = 2.0f;
+    const float gravity = 6.0f;
     InitWindow(screenWidth, screenHeight, "Physics Engine - Raylib Active");
 
     SetTargetFPS(60);
@@ -28,6 +29,9 @@ int main() {
         if (IsKeyDown(KEY_A) && !collides)  ball2Pos.x -= speed;
         if (IsKeyDown(KEY_W) && !collides)  ball2Pos.y -= speed;
         if (IsKeyDown(KEY_S) && !collides)  ball2Pos.y += speed;
+
+        // ballPos.y += gravity;
+        // ball2Pos.y += gravity;
 
         BeginDrawing();
             ClearBackground(DARKGRAY);

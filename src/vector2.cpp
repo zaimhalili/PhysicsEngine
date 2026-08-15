@@ -8,3 +8,6 @@ bool Collides(float radius1, float radius2, float speed,
     float d = sqrt((center2_X - center1_X) * (center2_X - center1_X) + (center2_Y - center1_Y) * (center2_Y - center1_Y));
     return d - speed <= radius1 + radius2;
 }
+
+
+// if ballPos.x + speed
