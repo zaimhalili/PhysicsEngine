@@ -8,7 +8,10 @@ struct Vector2D {
   float y;
 };
 
-inline Vector2D Add(Vector2D a, Vector2D b) { return {a.x + b.x, a.y + b.y}; }
+inline Vector2D
+Add(Vector2D a, Vector2D b) {
+  return {a.x + b.x, a.y + b.y};
+}
 
 inline Vector2D Subtract(Vector2D a, Vector2D b) {
   return {a.x - b.x, a.y - b.y};
@@ -22,8 +25,6 @@ inline float LengthSqr(Vector2D v) { return (v.x * v.x) + (v.y * v.y); }
 
 inline float Length(Vector2D v) { return std::sqrt(LengthSqr(v)); }
 
-inline float Dot(Vector2D a, Vector2D b) {
-  return (a.x * b.x) + (a.y * b.y);
-}
+inline float Dot(Vector2D a, Vector2D b) { return (a.x * b.x) + (a.y * b.y); }
 
 #endif

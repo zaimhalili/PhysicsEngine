@@ -1,110 +1,61 @@
+#include "../include/ball.hpp"
+#include "../include/physics.hpp"
 #include "raylib.h"
-#include "vector2.hpp"
 
-void ConstrainAndBounce(Vector2D &pos, Vector2D &vel, float radius,
-                        float restitution, int screenWidth, int screenHeight) {
-  // Left border
-  if (pos.x - radius < 0.0f) {
-    pos.x = radius;
-    vel.x = -vel.x * restitution;
-  }
-  // Right border
-  if (pos.x + radius > screenWidth) {
-    pos.x = screenWidth - radius;
-    vel.x = -vel.x * restitution;
-  }
-  // Top border
-  if (pos.y - radius < 0.0f) {
-    pos.y = radius;
-    vel.y = -vel.y * restitution;
-  }
-  // Bottom border
-  if (pos.y + radius > screenHeight) {
-    pos.y = screenHeight - radius;
-    vel.y = -vel.y * restitution;
-  }
-}
 
 int main() {
   const int screenWidth = 800;
   const int screenHeight = 600;
-  const float radius1 = 40.0f;
-  const float radius2 = 40.0f;
-  const float speed = 2.0f;
-  const float gravity = 1.0f;
-  const float elasticity = 0.4f;
-  InitWindow(screenWidth, screenHeight, "Physics Engine - Raylib Active");
+  const float dt = 1.0f / 60.0f;
+  const float friction = 0.99f;
+  const float restitution = 0.8f;
+
+  InitWindow(screenWidth, screenHeight, "Modular Physics Engine");
   SetTargetFPS(60);
 
-  Vector2D ballPos = {400.0f, 400.0f};
-  Vector2D ball2Pos = {100.0f, 100.0f};
-
-  Vector2D vel1 = {0.0f, 0.0f};
-  Vector2D vel2 = {0.0f, 0.0f};
+  Ball redBall = {{100.0f, 300.0f}, {100.0f, 300.0f}, {0.0f, 0.0f}, 30.0f, RED};
+  Ball blueBall = {
+      {400.0f, 300.0f}, {400.0f, 300.0f}, {0.0f, 0.0f}, 30.0f, BLUE};
 
   while (!WindowShouldClose()) {
-    
-
-    // Ball 1 Movement (Arrow Keys)
+    // Input
+    float force = 250.0f;
     if (IsKeyDown(KEY_RIGHT))
-      vel1.x += speed;
+      redBall.acceleration.x += force;
     if (IsKeyDown(KEY_LEFT))
-      vel1.x -= speed;
+      redBall.acceleration.x -= force;
     if (IsKeyDown(KEY_UP))
-      vel1.y -= speed;
+      redBall.acceleration.y -= force;
     if (IsKeyDown(KEY_DOWN))
-      vel1.y += speed;
+      redBall.acceleration.y += force;
 
-    // Ball 2 Movement (WASD Keys)
     if (IsKeyDown(KEY_D))
-      vel2.x += speed;
+      blueBall.acceleration.x += force;
     if (IsKeyDown(KEY_A))
-      vel2.x -= speed;
+      blueBall.acceleration.x -= force;
     if (IsKeyDown(KEY_W))
-      vel2.y -= speed;
+      blueBall.acceleration.y -= force;
     if (IsKeyDown(KEY_S))
-      vel2.y += speed;
+      blueBall.acceleration.y += force;
 
-    vel1.y += gravity;
-    vel2.y += gravity;
+    // Physics Updates
+    UpdateVerlet(redBall, dt, friction);
+    UpdateVerlet(blueBall, dt, friction);
 
-    ballPos = Add(ballPos, vel1);
-    ball2Pos = Add(ball2Pos, vel2);
+    // Collisions
+    ResolveBallCollision(redBall, blueBall);
 
-    Vector2D delta = Subtract(ballPos, ball2Pos);
+    // Constraints
+    ConstrainVerlet(redBall, restitution, screenWidth, screenHeight);
+    ConstrainVerlet(blueBall, restitution, screenWidth, screenHeight);
 
-    float distSqr = LengthSqr(delta);
-    float radiiSum = radius1 + radius2;
-    float radiiSumSqr = radiiSum * radiiSum;
-
-    if (distSqr <= radiiSumSqr && distSqr > 0.0001f) {
-      float distance = std::sqrt(distSqr);
-      float overlap = radiiSum - distance;
-
-      Vector2D normal = {delta.x / distance, delta.y / distance};
-      Vector2D seperation = Multiply(normal, overlap * 0.5f);
-
-      ballPos = Add(ballPos, seperation);
-      ball2Pos = Subtract(ball2Pos, seperation);
-    }
-
-    ConstrainAndBounce(ballPos, vel1, radius1, elasticity, screenWidth,
-                       screenHeight);
-    ConstrainAndBounce(ball2Pos, vel2, radius2, elasticity, screenWidth,
-                       screenHeight);
-
+    // Drawing
     BeginDrawing();
     ClearBackground(DARKGRAY);
-
-    DrawText("My physics engine! Use Arrow Keys to Move", 10, 10, 20, RAYWHITE);
-    DrawCircleV({ballPos.x, ballPos.y}, radius1, RED);
-    DrawCircleV({ball2Pos.x, ball2Pos.y}, radius2, BLUE);
-
-    DrawRectangle(0, -30, screenWidth, 30, BLACK);          // Top border
-    DrawRectangle(0, screenHeight, screenWidth, 30, BLACK); // Bottom border
-    DrawRectangle(-30, 0, 30, screenHeight, BLACK);         // Left border
-    DrawRectangle(screenWidth, 0, 30, screenHeight, BLACK); // Right border
-
+    DrawCircleV({redBall.position.x, redBall.position.y}, redBall.radius,
+                redBall.color);
+    DrawCircleV({blueBall.position.x, blueBall.position.y}, blueBall.radius,
+                blueBall.color);
     DrawFPS(10, 570);
     EndDrawing();
   }
