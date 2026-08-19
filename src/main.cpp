@@ -2,7 +2,6 @@
 #include "../include/physics.hpp"
 #include "raylib.h"
 
-
 int main() {
   const int screenWidth = 800;
   const int screenHeight = 600;
@@ -18,8 +17,8 @@ int main() {
       {400.0f, 300.0f}, {400.0f, 300.0f}, {0.0f, 0.0f}, 30.0f, BLUE};
 
   while (!WindowShouldClose()) {
-    // Input
-    float force = 250.0f;
+    // 1. Input (Smoother force)
+    float force = 1000.0f;
     if (IsKeyDown(KEY_RIGHT))
       redBall.acceleration.x += force;
     if (IsKeyDown(KEY_LEFT))
@@ -38,18 +37,19 @@ int main() {
     if (IsKeyDown(KEY_S))
       blueBall.acceleration.y += force;
 
-    // Physics Updates
+    // 2. Integration
     UpdateVerlet(redBall, dt, friction);
     UpdateVerlet(blueBall, dt, friction);
 
-    // Collisions
-    ResolveBallCollision(redBall, blueBall);
+    // 3. Sub-stepping loop (Prevents sticking & overlap glitches)
+    const int subSteps = 4;
+    for (int i = 0; i < subSteps; ++i) {
+      ResolveBallCollision(redBall, blueBall);
+      ConstrainVerlet(redBall, restitution, screenWidth, screenHeight);
+      ConstrainVerlet(blueBall, restitution, screenWidth, screenHeight);
+    }
 
-    // Constraints
-    ConstrainVerlet(redBall, restitution, screenWidth, screenHeight);
-    ConstrainVerlet(blueBall, restitution, screenWidth, screenHeight);
-
-    // Drawing
+    // 4. Drawing
     BeginDrawing();
     ClearBackground(DARKGRAY);
     DrawCircleV({redBall.position.x, redBall.position.y}, redBall.radius,
