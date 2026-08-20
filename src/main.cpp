@@ -19,45 +19,48 @@ int main() {
   InitWindow(screenWidth, screenHeight, "Modular Physics Engine");
   SetTargetFPS(60);
 
+  const Rectangle table = {100.0f, 100.0f, 1200.0f, 900.0f};
+
   Ball whiteBall = {
-      {100.0f, 300.0f}, {100.0f, 300.0f}, {0.0f, 0.0f}, 30.0f, WHITE};
-  Ball blueBall = {
-      {400.0f, 300.0f}, {400.0f, 300.0f}, {0.0f, 0.0f}, 30.0f, DARKBLUE};
+      {300.0f, 550.0f}, {300.0f, 550.0f}, {0.0f, 0.0f}, 15.0f, WHITE};
+  Ball redBall = {
+      {700.0f, 550.0f}, {700.0f, 550.0f}, {0.0f, 0.0f}, 15.0f, RED};
+
+  // Top-left pocket placed inside the table boundary
+  Pocket topLeftPocket = {{table.x + 25.0f, table.y + 25.0f}, 20.0f};
 
   bool isDragging = false;
   Ball *selectedBall = nullptr;
   Vector2D dragStart = {0.0f, 0.0f};
+  bool blueBallActive = true;
 
   while (!WindowShouldClose()) {
     Vector2D mousePos = {GetMousePosition().x, GetMousePosition().y};
 
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-      // Check if mouse clicked inside redBall
       if (LengthSqr(Subtract(mousePos, whiteBall.position)) <=
           whiteBall.radius * whiteBall.radius) {
         selectedBall = &whiteBall;
         isDragging = true;
         dragStart = whiteBall.position;
-      }
-      // Check if mouse clicked inside blueBall
-      else if (LengthSqr(Subtract(mousePos, blueBall.position)) <=
-               blueBall.radius * blueBall.radius) {
-        selectedBall = &blueBall;
+      } else if (blueBallActive &&
+                 LengthSqr(Subtract(mousePos, redBall.position)) <=
+                     redBall.radius * redBall.radius) {
+        selectedBall = &redBall;
         isDragging = true;
-        dragStart = blueBall.position;
+        dragStart = redBall.position;
       }
     }
 
-    // Release mouse button to strike the ball
     if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT) && isDragging &&
         selectedBall != nullptr) {
-      float powerMultiplier = 0.15f; // Adjust shot power responsiveness
+      float powerMultiplier = 0.15f;
       ShootBall(*selectedBall, dragStart, mousePos, powerMultiplier);
 
       isDragging = false;
       selectedBall = nullptr;
     }
-    // Input (Smoother force)
+
     float force = 1000.0f;
     if (IsKeyDown(KEY_RIGHT))
       whiteBall.acceleration.x += force;
@@ -68,46 +71,88 @@ int main() {
     if (IsKeyDown(KEY_DOWN))
       whiteBall.acceleration.y += force;
 
-    // if (IsKeyDown(KEY_D))
-    //   blueBall.acceleration.x += force;
-    // if (IsKeyDown(KEY_A))
-    //   blueBall.acceleration.x -= force;
-    // if (IsKeyDown(KEY_W))
-    //   blueBall.acceleration.y -= force;
-    // if (IsKeyDown(KEY_S))
-    //   blueBall.acceleration.y += force;
-
-    // Integration
     UpdateVerlet(whiteBall, dt, friction);
-    UpdateVerlet(blueBall, dt, friction);
+    if (blueBallActive) {
+      UpdateVerlet(redBall, dt, friction);
+    }
 
-    // Sub-stepping loop (Prevents sticking & overlap glitches)
     const int subSteps = 4;
     for (int i = 0; i < subSteps; ++i) {
-      ResolveBallCollision(whiteBall, blueBall);
-      ConstrainVerlet(whiteBall, restitution, screenWidth, screenHeight);
-      ConstrainVerlet(blueBall, restitution, screenWidth, screenHeight);
+      if (blueBallActive) {
+        ResolveBallCollision(whiteBall, redBall);
+        ConstrainVerlet(redBall, restitution, table.x + table.width,
+                        table.y + table.height);
+
+        // Keep inside table bounds
+        if (redBall.position.x - redBall.radius < table.x) {
+          redBall.position.x = table.x + redBall.radius;
+        }
+        if (redBall.position.y - redBall.radius < table.y) {
+          redBall.position.y = table.y + redBall.radius;
+        }
+
+        if (CheckPocketCollision(redBall, topLeftPocket)) {
+          blueBallActive = false;
+          if (selectedBall == &redBall) {
+            isDragging = false;
+            selectedBall = nullptr;
+          }
+        }
+      }
+
+      if (CheckPocketCollision(whiteBall, topLeftPocket)) {
+        whiteBall.position = {table.x + table.width / 2.0f,
+                              table.y + table.height / 2.0f};
+        whiteBall.prevPosition = whiteBall.position;
+      }
+
+      ConstrainVerlet(whiteBall, restitution, table.x + table.width,
+                      table.y + table.height);
+
+      // Keep inside table bounds
+      if (whiteBall.position.x - whiteBall.radius < table.x) {
+        whiteBall.position.x = table.x + whiteBall.radius;
+      }
+      if (whiteBall.position.y - whiteBall.radius < table.y) {
+        whiteBall.position.y = table.y + whiteBall.radius;
+      }
     }
 
-    // Drawing
     BeginDrawing();
-    ClearBackground(DARKGREEN);
-    if (isDragging && selectedBall != nullptr) {
-      // Draw pull-back cue line (from ball to current mouse)
-      DrawLineEx({whiteBall.position.x, whiteBall.position.y},
-                 {mousePos.x, mousePos.y}, 5.0f, WHITE);
+    ClearBackground(DARKBLUE); // Wooden frame around table
 
-      // Draw trajectory guide line (points in shot direction)
+    // Draw Table Felt Area
+    DrawRectangleRec(table, SKYBLUE);
+
+    // Draw Pocket
+    DrawCircleV({topLeftPocket.position.x, topLeftPocket.position.y},
+                topLeftPocket.radius + 6.0f, DARKGRAY);
+    DrawCircleV({topLeftPocket.position.x, topLeftPocket.position.y},
+                topLeftPocket.radius, BLACK);
+    DrawCircleLines(static_cast<int>(topLeftPocket.position.x),
+                    static_cast<int>(topLeftPocket.position.y),
+                    topLeftPocket.radius + 6.0f, GRAY);
+
+    // Aim Trajectory
+    if (isDragging && selectedBall != nullptr) {
+      Vector2D ballPos = selectedBall->position;
+      DrawLineEx({ballPos.x, ballPos.y}, {mousePos.x, mousePos.y}, 5.0f, WHITE);
+
       Vector2D shotDir = Subtract(dragStart, mousePos);
-      Vector2D aimTarget = Add(selectedBall->position, shotDir);
-      DrawLineEx({whiteBall.position.x, whiteBall.position.y},
-                 {aimTarget.x, aimTarget.y}, 3.0f, LIME);
+      Vector2D aimTarget = Add(ballPos, shotDir);
+      DrawLineEx({ballPos.x, ballPos.y}, {aimTarget.x, aimTarget.y}, 3.0f,
+                 LIME);
     }
 
+    // Draw Balls
     DrawCircleV({whiteBall.position.x, whiteBall.position.y}, whiteBall.radius,
                 whiteBall.color);
-    DrawCircleV({blueBall.position.x, blueBall.position.y}, blueBall.radius,
-                blueBall.color);
+
+    if (blueBallActive) {
+      DrawCircleV({redBall.position.x, redBall.position.y}, redBall.radius,
+                  redBall.color);
+    }
+
     DrawFPS(10, screenHeight - 20);
     EndDrawing();
   }

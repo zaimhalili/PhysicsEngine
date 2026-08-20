@@ -37,3 +37,10 @@ void ResolveBallCollision(Ball &b1, Ball &b2) {
     }
   }
 }
+
+bool CheckPocketCollision(Ball &b1, const Pocket &pocket) {
+  Vector2D delta = Subtract(b1.position, pocket.position);
+
+  float sinkDistance = pocket.radius * 0.7;
+  return LengthSqr(delta) <= (sinkDistance * sinkDistance);
+}
