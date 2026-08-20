@@ -34,10 +34,16 @@ int main() {
   Vector2D dragStart = {0.0f, 0.0f};
   bool redBallActive = true;
 
+
+
   while (!WindowShouldClose()) {
+    // Aim Trajectory
+    bool cueBallStopped = isBallStopped(whiteBall);
+    bool redBallStopped = !redBallActive || isBallStopped(redBall);
+
     Vector2D mousePos = {GetMousePosition().x, GetMousePosition().y};
 
-    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+    if (cueBallStopped && redBallStopped && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
       if (LengthSqr(Subtract(mousePos, whiteBall.position)) <=
           whiteBall.radius * whiteBall.radius) {
         selectedBall = &whiteBall;
@@ -133,8 +139,8 @@ int main() {
                     static_cast<int>(topLeftPocket.position.y),
                     topLeftPocket.radius + 6.0f, GRAY);
 
-    // Aim Trajectory
-    if (isDragging && selectedBall != nullptr && whiteBall.acceleration.x == 0.0f && whiteBall.acceleration.y == 0.0f) {
+    
+    if (cueBallStopped && redBallStopped && isDragging && selectedBall != nullptr) {
       Vector2D ballPos = selectedBall->position;
       DrawLineEx({ballPos.x, ballPos.y}, {mousePos.x, mousePos.y}, 5.0f, WHITE);
 
