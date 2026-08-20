@@ -13,6 +13,8 @@ struct Ball {
 };
 
 void UpdateVerlet(Ball& ball, float dt, float friction);
-void ConstrainVerlet(Ball& ball, float restitution, int screenWidth, int screenHeight);
+void ConstrainVerlet(Ball &ball, float restitution, float minX, float minY,
+                     float maxX, float maxY);
+bool isBallStopped(Ball& b1);
 
 #endif // !BALL_HPP

@@ -14,7 +14,7 @@ int main() {
   const int screenHeight = 1100;
   const float dt = 1.0f / 60.0f;
   const float friction = 0.99f;
-  const float restitution = 0.8f;
+  const float restitution = 0.6f;
 
   InitWindow(screenWidth, screenHeight, "Modular Physics Engine");
   SetTargetFPS(60);
@@ -32,7 +32,7 @@ int main() {
   bool isDragging = false;
   Ball *selectedBall = nullptr;
   Vector2D dragStart = {0.0f, 0.0f};
-  bool blueBallActive = true;
+  bool redBallActive = true;
 
   while (!WindowShouldClose()) {
     Vector2D mousePos = {GetMousePosition().x, GetMousePosition().y};
@@ -43,7 +43,7 @@ int main() {
         selectedBall = &whiteBall;
         isDragging = true;
         dragStart = whiteBall.position;
-      } else if (blueBallActive &&
+      } else if (redBallActive &&
                  LengthSqr(Subtract(mousePos, redBall.position)) <=
                      redBall.radius * redBall.radius) {
         selectedBall = &redBall;
@@ -54,14 +54,14 @@ int main() {
 
     if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT) && isDragging &&
         selectedBall != nullptr) {
-      float powerMultiplier = 0.15f;
+      float powerMultiplier = 0.06f;
       ShootBall(*selectedBall, dragStart, mousePos, powerMultiplier);
 
       isDragging = false;
       selectedBall = nullptr;
     }
 
-    float force = 1000.0f;
+    float force = 200.0f;
     if (IsKeyDown(KEY_RIGHT))
       whiteBall.acceleration.x += force;
     if (IsKeyDown(KEY_LEFT))
@@ -72,16 +72,16 @@ int main() {
       whiteBall.acceleration.y += force;
 
     UpdateVerlet(whiteBall, dt, friction);
-    if (blueBallActive) {
+    if (redBallActive) {
       UpdateVerlet(redBall, dt, friction);
     }
 
     const int subSteps = 4;
     for (int i = 0; i < subSteps; ++i) {
-      if (blueBallActive) {
+      if (redBallActive) {
         ResolveBallCollision(whiteBall, redBall);
-        ConstrainVerlet(redBall, restitution, table.x + table.width,
-                        table.y + table.height);
+        ConstrainVerlet(redBall, restitution, table.x, table.y,
+                        table.x + table.width, table.y + table.height);
 
         // Keep inside table bounds
         if (redBall.position.x - redBall.radius < table.x) {
@@ -92,7 +92,7 @@ int main() {
         }
 
         if (CheckPocketCollision(redBall, topLeftPocket)) {
-          blueBallActive = false;
+          redBallActive = false;
           if (selectedBall == &redBall) {
             isDragging = false;
             selectedBall = nullptr;
@@ -106,8 +106,8 @@ int main() {
         whiteBall.prevPosition = whiteBall.position;
       }
 
-      ConstrainVerlet(whiteBall, restitution, table.x + table.width,
-                      table.y + table.height);
+      ConstrainVerlet(whiteBall, restitution, table.x, table.y,
+                      table.x + table.width, table.y + table.height);
 
       // Keep inside table bounds
       if (whiteBall.position.x - whiteBall.radius < table.x) {
@@ -134,21 +134,21 @@ int main() {
                     topLeftPocket.radius + 6.0f, GRAY);
 
     // Aim Trajectory
-    if (isDragging && selectedBall != nullptr) {
+    if (isDragging && selectedBall != nullptr && whiteBall.acceleration.x == 0.0f && whiteBall.acceleration.y == 0.0f) {
       Vector2D ballPos = selectedBall->position;
       DrawLineEx({ballPos.x, ballPos.y}, {mousePos.x, mousePos.y}, 5.0f, WHITE);
 
       Vector2D shotDir = Subtract(dragStart, mousePos);
       Vector2D aimTarget = Add(ballPos, shotDir);
       DrawLineEx({ballPos.x, ballPos.y}, {aimTarget.x, aimTarget.y}, 3.0f,
-                 LIME);
+                 LIGHTGRAY);
     }
 
     // Draw Balls
     DrawCircleV({whiteBall.position.x, whiteBall.position.y}, whiteBall.radius,
                 whiteBall.color);
 
-    if (blueBallActive) {
+    if (redBallActive) {
       DrawCircleV({redBall.position.x, redBall.position.y}, redBall.radius,
                   redBall.color);
     }

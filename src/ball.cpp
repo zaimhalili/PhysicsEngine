@@ -7,12 +7,9 @@ void UpdateVerlet(Ball &ball, float dt, float friction) {
   // Apply friction (damping)
   vel = Multiply(vel, friction);
 
-  // Cap max velocity to prevent numerical explosion
-  float maxSpeed = 15.0f;
-  float currentSpeedSqr = LengthSqr(vel);
-  if (currentSpeedSqr > maxSpeed * maxSpeed) {
-    float speed = std::sqrt(currentSpeedSqr);
-    vel = Multiply(vel, maxSpeed / speed);
+  // Stop micro drifts if the velocity reaches the threshold
+  if (LengthSqr(vel) < 0.0025f) { // threshold * threshold
+    vel = {0.0f, 0.0f};
   }
 
   // Save old position
@@ -26,26 +23,32 @@ void UpdateVerlet(Ball &ball, float dt, float friction) {
   ball.acceleration = {0.0f, 0.0f};
 }
 
-void ConstrainVerlet(Ball &ball, float restitution, int screenWidth,
-                     int screenHeight) {
+void ConstrainVerlet(Ball &ball, float restitution, float minX, float minY,
+                     float maxX, float maxY) {
   Vector2D vel = Subtract(ball.position, ball.prevPosition);
   float r = ball.radius;
 
-  // X axis boundaries
-  if (ball.position.x - r < 0.0f) {
-    ball.position.x = r;
+  // X axis boundaries (Table left & right)
+  if (ball.position.x - r < minX) {
+    ball.position.x = minX + r;
     ball.prevPosition.x = ball.position.x + (vel.x * restitution);
-  } else if (ball.position.x + r > static_cast<float>(screenWidth)) {
-    ball.position.x = static_cast<float>(screenWidth) - r;
+  } else if (ball.position.x + r > maxX) {
+    ball.position.x = maxX - r;
     ball.prevPosition.x = ball.position.x + (vel.x * restitution);
   }
 
-  // Y axis boundaries
-  if (ball.position.y - r < 0.0f) {
-    ball.position.y = r;
+  // Y axis boundaries (Table top & bottom)
+  if (ball.position.y - r < minY) {
+    ball.position.y = minY + r;
     ball.prevPosition.y = ball.position.y + (vel.y * restitution);
-  } else if (ball.position.y + r > static_cast<float>(screenHeight)) {
-    ball.position.y = static_cast<float>(screenHeight) - r;
+  } else if (ball.position.y + r > maxY) {
+    ball.position.y = maxY - r;
     ball.prevPosition.y = ball.position.y + (vel.y * restitution);
   }
+}
+
+bool isBallStopped(Ball &ball, float threshold = 0.05f) {
+  Vector2D vel = Subtract(ball.position, ball.prevPosition);
+
+  return LengthSqr(vel) < (threshold * threshold);
 }
