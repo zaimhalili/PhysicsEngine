@@ -19,12 +19,12 @@ private:
   int GetCellIndex(int row, int col) const;
 
 public:
-  Grid(int tableWidth, int tableHeight, float cellSize,
-       float originX = 0.0f, float originY = 0.0f);
+  Grid(int tableWidth, int tableHeight, float cellSize, float originX = 0.0f,
+       float originY = 0.0f);
 
   void Clear();
   void Insert(Ball &ball);
-  void GetPossibleCollisions(const Ball ball,
+  void GetPossibleCollisions(const Ball &ball,
                              vector<Ball *> &outCandidates) const;
 };
 

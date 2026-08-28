@@ -2,112 +2,166 @@
 #include "../include/grid.hpp"
 #include "../include/physics.hpp"
 #include "raylib.h"
+#include <algorithm>
+#include <array>
+#include <string>
 #include <vector>
 
-void ShootBall(Ball &ball, Vector2D startPos, Vector2D endPos,
-               float powerMultiplier) {
-  Vector2D shotDir = Subtract(startPos, endPos);
-  ball.prevPosition =
-      Subtract(ball.position, Multiply(shotDir, powerMultiplier));
+namespace {
+constexpr int ScreenWidth = 1200;
+constexpr int ScreenHeight = 800;
+constexpr float BallRadius = 13.0f;
+constexpr float PocketRadius = 25.0f;
+
+void ShootBall(Ball &ball, Vector2D start, Vector2D end) {
+  Vector2D shot = Subtract(start, end);
+  float distance = Length(shot);
+  if (distance <= 0.0f) {
+    return;
+  }
+  float speed = std::min(8.5f, distance * 0.045f);
+  ball.prevPosition = Subtract(ball.position,
+                               Multiply(shot, speed / distance));
 }
 
+void ResetGame(std::vector<Ball> &balls, std::vector<int> &numbers,
+               const Rectangle &table) {
+  balls.clear();
+  numbers.clear();
+  balls.reserve(16);
+  numbers.reserve(16);
+  Vector2D cuePosition = {table.x + table.width * 0.25f,
+                          table.y + table.height * 0.5f};
+  balls.push_back({cuePosition, cuePosition, {0.0f, 0.0f}, BallRadius, WHITE});
+  numbers.push_back(0);
+
+  Vector2D rackOrigin = {table.x + table.width * 0.72f,
+                         table.y + table.height * 0.5f};
+  const float spacing = BallRadius * 2.05f;
+  const std::array<int, 15> rackNumbers = {
+      1, 9, 2, 10, 8, 11, 3, 12, 4, 13, 5, 14, 6, 15, 7};
+
+  const std::array<Color, 15> colors = {
+      YELLOW, BLUE, RED, PURPLE, ORANGE, GREEN, MAROON, GOLD,
+      DARKBLUE, LIME, MAGENTA, SKYBLUE, DARKGREEN, VIOLET, BROWN};
+  for (int row = 0; row < 5; ++row) {
+    for (int column = 0; column <= row; ++column) {
+      int rackIndex = row * (row + 1) / 2 + column;
+      Vector2D position = {rackOrigin.x + row * spacing,
+                           rackOrigin.y + (column - row * 0.5f) * spacing};
+      balls.push_back(
+          {position, position, {0.0f, 0.0f}, BallRadius,
+           rackNumbers[rackIndex] == 8 ? BLACK : colors[rackIndex]});
+      numbers.push_back(rackNumbers[rackIndex]);
+    }
+  }
+}
+
+bool AllStopped(const std::vector<Ball> &balls) {
+  for (const Ball &ball : balls) {
+    if (!isBallStopped(const_cast<Ball &>(ball))) {
+      return false;
+    }
+  }
+  return true;
+}
+
+void DrawBall(const Ball &ball, int number) {
+  Vector2 center = {ball.position.x, ball.position.y};
+  DrawCircleV(center, ball.radius + 1.5f, Fade(BLACK, 0.28f));
+  DrawCircleV(center, ball.radius, ball.color);
+  if (number > 0) {
+    if (number >= 9 && number != 8) {
+      DrawRectangle(static_cast<int>(center.x - ball.radius),
+                    static_cast<int>(center.y - ball.radius * 0.32f),
+                    static_cast<int>(ball.radius * 2.0f),
+                    static_cast<int>(ball.radius * 0.64f), WHITE);
+    }
+    DrawCircleV(center, ball.radius * 0.45f, RAYWHITE);
+    DrawText(std::to_string(number).c_str(), static_cast<int>(center.x) - 3,
+             static_cast<int>(center.y) - 5, 10, BLACK);
+  }
+  DrawCircleGradient({center.x - 4.0f, center.y - 5.0f}, 4.0f, WHITE,
+                     Fade(WHITE, 0.0f));
+}
+} // namespace
+
 int main() {
-  const int screenWidth = 1200;
-  const int screenHeight = 800;
-  const float CELL_SIZE = 32.0f;
-  const float friction = 0.99f;
-  const float restitution = 0.6f;
-
-  InitWindow(screenWidth, screenHeight, "Modular Physics Engine");
-  SetTargetFPS(60);
-
-  // Define table inside screen dimensions
   const Rectangle table = {50.0f, 50.0f, 1100.0f, 700.0f};
+  const float friction = 0.992f;
+  const float restitution = 0.72f;
+  const std::array<Pocket, 6> pockets = {
+      Pocket{{table.x + 24.0f, table.y + 24.0f}, PocketRadius},
+      Pocket{{table.x + table.width * 0.5f, table.y + 18.0f}, PocketRadius},
+      Pocket{{table.x + table.width - 24.0f, table.y + 24.0f}, PocketRadius},
+      Pocket{{table.x + 24.0f, table.y + table.height - 24.0f}, PocketRadius},
+      Pocket{{table.x + table.width * 0.5f, table.y + table.height - 18.0f},
+             PocketRadius},
+      Pocket{{table.x + table.width - 24.0f, table.y + table.height - 24.0f},
+             PocketRadius}};
 
-  // Instantiate spatial grid matching table bounds
-  Grid grid(table.width, table.height, CELL_SIZE, table.x, table.y);
-
+  InitWindow(ScreenWidth, ScreenHeight, "CMU Pool Lab");
+  SetTargetFPS(60);
+  Grid grid(static_cast<int>(table.width), static_cast<int>(table.height),
+            32.0f, table.x, table.y);
+  std::vector<Ball> balls;
+  std::vector<int> numbers;
+  std::vector<Ball *> activeBalls;
   std::vector<Ball *> candidates;
-  candidates.reserve(16);
+  ResetGame(balls, numbers, table);
 
-  Ball whiteBall = {
-      {300.0f, 400.0f}, {300.0f, 400.0f}, {0.0f, 0.0f}, 15.0f, WHITE};
-  Ball redBall = {{700.0f, 400.0f}, {700.0f, 400.0f}, {0.0f, 0.0f}, 15.0f, RED};
-
-  // Top-left pocket placed inside the table boundary
-  Pocket topLeftPocket = {{table.x + 25.0f, table.y + 25.0f}, 20.0f};
-
-  bool isDragging = false;
-  Ball *selectedBall = nullptr;
+  bool aiming = false;
   Vector2D dragStart = {0.0f, 0.0f};
-  bool redBallActive = true;
+  int pocketed = 0;
+  int shots = 0;
+  bool cueScratch = false;
 
   while (!WindowShouldClose()) {
-    bool cueBallStopped = isBallStopped(whiteBall);
-    bool redBallStopped = !redBallActive || isBallStopped(redBall);
+    Vector2 mouse = GetMousePosition();
+    Vector2D mousePos = {mouse.x, mouse.y};
+    bool stopped = AllStopped(balls);
+    Ball &cueBall = balls.front();
 
-    Vector2D mousePos = {GetMousePosition().x, GetMousePosition().y};
+    if (IsKeyPressed(KEY_R)) {
+      ResetGame(balls, numbers, table);
+      pocketed = 0;
+      shots = 0;
+      cueScratch = false;
+      aiming = false;
+    }
 
-    if (cueBallStopped && redBallStopped &&
-        IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-      if (LengthSqr(Subtract(mousePos, whiteBall.position)) <=
-          whiteBall.radius * whiteBall.radius) {
-        selectedBall = &whiteBall;
-        isDragging = true;
-        dragStart = whiteBall.position;
-      } else if (redBallActive &&
-                 LengthSqr(Subtract(mousePos, redBall.position)) <=
-                     redBall.radius * redBall.radius) {
-        selectedBall = &redBall;
-        isDragging = true;
-        dragStart = redBall.position;
+    if (stopped && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
+        LengthSqr(Subtract(mousePos, cueBall.position)) <=
+            cueBall.radius * cueBall.radius) {
+      aiming = true;
+      dragStart = cueBall.position;
+    }
+
+    if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT) && aiming) {
+      float shotLength = Length(Subtract(dragStart, mousePos));
+      if (shotLength > 8.0f) {
+        ShootBall(cueBall, dragStart, mousePos);
+        ++shots;
       }
+      aiming = false;
     }
 
-    if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT) && isDragging &&
-        selectedBall != nullptr) {
-      float powerMultiplier = 0.06f;
-      ShootBall(*selectedBall, dragStart, mousePos, powerMultiplier);
-      isDragging = false;
-      selectedBall = nullptr;
-    }
-
-    // Manual acceleration input for testing
-    // float force = 200.0f;
-    // if (IsKeyDown(KEY_RIGHT))
-    //   whiteBall.acceleration.x += force;
-    // if (IsKeyDown(KEY_LEFT))
-    //   whiteBall.acceleration.x -= force;
-    // if (IsKeyDown(KEY_UP))
-    //   whiteBall.acceleration.y -= force;
-    // if (IsKeyDown(KEY_DOWN))
-    //   whiteBall.acceleration.y += force;
-
-    // Spatial grid for better efficiency
-    const int SUB_STEPS = 8;
-    const float dt =
-        (GetFrameTime() > 0.2f ? 0.016f : GetFrameTime()) / SUB_STEPS;
-
-    for (int step = 0; step < SUB_STEPS; ++step) {
-
+    float frameTime = std::min(GetFrameTime(), 0.033f);
+    const float dt = frameTime / 8.0f;
+    for (int step = 0; step < 8; ++step) {
       grid.Clear();
-
-      std::vector<Ball *> activeBalls;
-      activeBalls.push_back(&whiteBall);
-      if (redBallActive) {
-        activeBalls.push_back(&redBall);
-      }
-
-      for (Ball *ball : activeBalls) {
-        UpdateVerlet(*ball, dt, friction);
-        grid.Insert(*ball);
+      activeBalls.clear();
+      for (Ball &ball : balls) {
+        if (ball.radius > 0.0f) {
+          activeBalls.push_back(&ball);
+          UpdateVerlet(ball, dt, friction);
+          grid.Insert(ball);
+        }
       }
 
       for (Ball *ball : activeBalls) {
         grid.GetPossibleCollisions(*ball, candidates);
-
         for (Ball *neighbor : candidates) {
-          // Avoid testing the same pair twice using address comparison
           if (neighbor > ball) {
             ResolveBallCollision(*ball, *neighbor);
           }
@@ -119,59 +173,80 @@ int main() {
                         table.x + table.width, table.y + table.height);
       }
 
-      // Pocket collisions
-      if (redBallActive && CheckPocketCollision(redBall, topLeftPocket)) {
-        redBallActive = false;
-        if (selectedBall == &redBall) {
-          isDragging = false;
-          selectedBall = nullptr;
+      for (size_t index = 0; index < balls.size(); ++index) {
+        Ball &ball = balls[index];
+        if (ball.radius <= 0.0f) {
+          continue;
         }
-      }
-
-      if (CheckPocketCollision(whiteBall, topLeftPocket)) {
-        whiteBall.position = {table.x + table.width / 2.0f,
-                              table.y + table.height / 2.0f};
-        whiteBall.prevPosition = whiteBall.position;
+        for (const Pocket &pocket : pockets) {
+          if (!CheckPocketCollision(ball, pocket)) {
+            continue;
+          }
+          if (index == 0) {
+            cueScratch = true;
+            ball.position = {table.x + table.width * 0.25f,
+                             table.y + table.height * 0.5f};
+            ball.prevPosition = ball.position;
+          } else {
+            ball.radius = 0.0f;
+            ++pocketed;
+          }
+          break;
+        }
       }
     }
 
     BeginDrawing();
-    ClearBackground(DARKBLUE);
+    ClearBackground({18, 24, 34, 255});
+    DrawRectangleRec({28.0f, 28.0f, 1144.0f, 744.0f}, Fade(BLACK, 0.35f));
+    DrawRectangleRec(table, {38, 112, 78, 255});
+    DrawRectangleLinesEx(table, 10.0f, {116, 73, 43, 255});
+    DrawRectangleLinesEx({table.x + 12.0f, table.y + 12.0f, table.width - 24.0f,
+                          table.height - 24.0f},
+                         2.0f, {88, 168, 112, 255});
 
-    // Draw Table Felt Area
-    DrawRectangleRec(table, SKYBLUE);
-
-    // Draw Pocket
-    DrawCircleV({topLeftPocket.position.x, topLeftPocket.position.y},
-                topLeftPocket.radius + 6.0f, DARKGRAY);
-    DrawCircleV({topLeftPocket.position.x, topLeftPocket.position.y},
-                topLeftPocket.radius, BLACK);
-    DrawCircleLines(static_cast<int>(topLeftPocket.position.x),
-                    static_cast<int>(topLeftPocket.position.y),
-                    topLeftPocket.radius + 6.0f, GRAY);
-
-    // Draw Aim Indicator
-    if (cueBallStopped && redBallStopped && isDragging &&
-        selectedBall != nullptr) {
-      Vector2D ballPos = selectedBall->position;
-      DrawLineEx({ballPos.x, ballPos.y}, {mousePos.x, mousePos.y}, 5.0f, WHITE);
-
-      Vector2D shotDir = Subtract(dragStart, mousePos);
-      Vector2D aimTarget = Add(ballPos, shotDir);
-      DrawLineEx({ballPos.x, ballPos.y}, {aimTarget.x, aimTarget.y}, 3.0f,
-                 LIGHTGRAY);
+    for (const Pocket &pocket : pockets) {
+      Vector2 center = {pocket.position.x, pocket.position.y};
+      DrawCircleV(center, pocket.radius + 8.0f, {25, 30, 31, 255});
+      DrawCircleV(center, pocket.radius, BLACK);
+      DrawCircleLines(static_cast<int>(center.x), static_cast<int>(center.y),
+                      pocket.radius + 2.0f, {105, 68, 42, 255});
     }
 
-    // Draw Active Balls
-    DrawCircleV({whiteBall.position.x, whiteBall.position.y}, whiteBall.radius,
-                whiteBall.color);
+    DrawText("Pool Game", 72, 66, 24, RAYWHITE);
+    DrawText("PHYSICS PLAYGROUND", 75, 92, 11, {164, 199, 173, 255});
+    DrawText(TextFormat("BALLS  %02i", pocketed), 930, 68, 16, RAYWHITE);
+    DrawText(TextFormat("SHOTS  %02i", shots), 1030, 68, 16,
+             {216, 224, 210, 255});
 
-    if (redBallActive) {
-      DrawCircleV({redBall.position.x, redBall.position.y}, redBall.radius,
-                  redBall.color);
+    if (aiming) {
+      Vector2D shot = Subtract(dragStart, mousePos);
+      float length = std::min(260.0f, Length(shot));
+      Vector2D direction = length > 0.0f ? Multiply(shot, 1.0f / Length(shot))
+                                         : Vector2D{0.0f, 0.0f};
+      Vector2D guideEnd = Add(cueBall.position, Multiply(direction, 420.0f));
+      DrawLineEx({cueBall.position.x, cueBall.position.y},
+                 {guideEnd.x, guideEnd.y}, 2.0f, Fade(RAYWHITE, 0.45f));
+      DrawLineEx({mouse.x, mouse.y}, {cueBall.position.x, cueBall.position.y},
+                 6.0f, {190, 143, 83, 255});
+      DrawCircleV({mouse.x, mouse.y}, 5.0f, RAYWHITE);
+      DrawRectangle(72, 716, 240, 8, Fade(BLACK, 0.5f));
+      DrawRectangle(72, 716, static_cast<int>(240.0f * length / 260.0f), 8,
+                    {216, 161, 82, 255});
     }
 
-    DrawFPS(10, screenHeight - 30);
+    for (size_t index = 0; index < balls.size(); ++index) {
+      if (balls[index].radius > 0.0f) {
+        DrawBall(balls[index], index == 0 ? 0 : static_cast<int>(index));
+      }
+    }
+
+    const char *status =
+        cueScratch       ? "SCRATCH  |  Cue ball reset  |  Press R to restart"
+        : pocketed == 15 ? "TABLE CLEARED  |  Press R for a new rack"
+        : aiming         ? "SET POWER  |  Release to break"
+                         : "Click the cue ball, pull back, release to shoot";
+    DrawText(status, 72, 742, 14, {209, 218, 207, 255});
     EndDrawing();
   }
 

@@ -19,7 +19,7 @@ std::pair<int, int> Grid::GetCellCoords(Vector2D pos) const {
   int col = static_cast<int>(std::floor(localX / cellSize));
   int row = static_cast<int>(std::floor(localY / cellSize));
 
-  return {row, col};
+  return {col, row};
 }
 
 int Grid::GetCellIndex(int col, int row) const { return row * cols + col; }
@@ -30,7 +30,16 @@ void Grid::Clear() {
   }
 }
 
-void Grid::GetPossibleCollisions(const Ball ball,
+void Grid::Insert(Ball &ball) {
+  auto [col, row] = GetCellCoords(ball.position);
+  if (col < 0 || col >= cols || row < 0 || row >= rows) {
+    return;
+  }
+
+  cells[GetCellIndex(col, row)].push_back(&ball);
+}
+
+void Grid::GetPossibleCollisions(const Ball &ball,
                                  vector<Ball *> &outCandidates) const {
   outCandidates.clear();
   auto [centerCol, centerRow] = GetCellCoords(ball.position);
