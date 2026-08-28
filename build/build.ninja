@@ -76,6 +76,14 @@ build CMakeFiles/PhysicsEngine.dir/src/physics.cpp.obj: CXX_COMPILER__PhysicsEng
   OBJECT_FILE_DIR = CMakeFiles\PhysicsEngine.dir\src
   TARGET_SUPPORT_DIR = CMakeFiles\PhysicsEngine.dir
 
+build CMakeFiles/PhysicsEngine.dir/src/pool_game.cpp.obj: CXX_COMPILER__PhysicsEngine_unscanned_ C$:/Users/halil/Desktop/ITTS/C++$ Projects/PhysicsEngine/src/pool_game.cpp || cmake_object_order_depends_target_PhysicsEngine
+  DEP_FILE = CMakeFiles\PhysicsEngine.dir\src\pool_game.cpp.obj.d
+  FLAGS = -std=gnu++17
+  INCLUDES = -I"C:/Users/halil/Desktop/ITTS/C++ Projects/PhysicsEngine/include"
+  OBJECT_DIR = CMakeFiles\PhysicsEngine.dir
+  OBJECT_FILE_DIR = CMakeFiles\PhysicsEngine.dir\src
+  TARGET_SUPPORT_DIR = CMakeFiles\PhysicsEngine.dir
+
 
 # =============================================================================
 # Link build statements for EXECUTABLE target PhysicsEngine
@@ -84,7 +92,7 @@ build CMakeFiles/PhysicsEngine.dir/src/physics.cpp.obj: CXX_COMPILER__PhysicsEng
 #############################################
 # Link the executable PhysicsEngine.exe
 
-build PhysicsEngine.exe: CXX_EXECUTABLE_LINKER__PhysicsEngine_ CMakeFiles/PhysicsEngine.dir/src/ball.cpp.obj CMakeFiles/PhysicsEngine.dir/src/grid.cpp.obj CMakeFiles/PhysicsEngine.dir/src/main.cpp.obj CMakeFiles/PhysicsEngine.dir/src/physics.cpp.obj
+build PhysicsEngine.exe: CXX_EXECUTABLE_LINKER__PhysicsEngine_ CMakeFiles/PhysicsEngine.dir/src/ball.cpp.obj CMakeFiles/PhysicsEngine.dir/src/grid.cpp.obj CMakeFiles/PhysicsEngine.dir/src/main.cpp.obj CMakeFiles/PhysicsEngine.dir/src/physics.cpp.obj CMakeFiles/PhysicsEngine.dir/src/pool_game.cpp.obj
   LINK_LIBRARIES = -lraylib  -lopengl32  -lgdi32  -lwinmm  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32
   OBJECT_DIR = CMakeFiles\PhysicsEngine.dir
   POST_BUILD = cd .
