@@ -215,10 +215,18 @@ AimGuide PoolGame::CalculateAimGuide(Vector2D mousePosition) const {
     if (distance >= 0.0f && distance < nearestDistance) {
       nearestDistance = distance;
       result.hasTarget = true;
-      result.cueEnd =
-          Add(balls.front().position,
-            Multiply(result.direction, distance + ball.radius));
-      result.targetEnd = Add(ball.position, Multiply(result.direction, 130.0f));
+      Vector2D cueContact =
+          Add(balls.front().position, Multiply(result.direction, distance));
+      Vector2D collisionNormal = Subtract(ball.position, cueContact);
+      float normalLength = Length(collisionNormal);
+      if (normalLength <= 0.0f) {
+        continue;
+      }
+      result.targetDirection = Multiply(collisionNormal, 1.0f / normalLength);
+      result.cueEnd = Subtract(ball.position,
+                               Multiply(result.targetDirection, ball.radius));
+      result.targetEnd =
+          Add(ball.position, Multiply(result.targetDirection, 130.0f));
       result.targetIndex = static_cast<int>(index);
     }
   }
@@ -274,7 +282,8 @@ void PoolGame::ResolvePockets() {
             playerGroups[currentPlayer] = group;
             playerGroups[1 - currentPlayer] = 3 - group;
           }
-            pocketedOwnBall = pocketedOwnBall || playerGroups[currentPlayer] == group;
+          pocketedOwnBall =
+              pocketedOwnBall || playerGroups[currentPlayer] == group;
         }
         ball.radius = 0.0f;
         ++pocketed;

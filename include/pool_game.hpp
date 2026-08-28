@@ -11,6 +11,7 @@
 struct AimGuide {
   bool hasTarget = false;
   Vector2D direction = {0.0f, 0.0f};
+  Vector2D targetDirection = {0.0f, 0.0f};
   Vector2D cueEnd = {0.0f, 0.0f};
   Vector2D targetEnd = {0.0f, 0.0f};
   int targetIndex = -1;
