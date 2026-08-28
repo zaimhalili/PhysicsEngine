@@ -20,8 +20,7 @@ void ShootBall(Ball &ball, Vector2D start, Vector2D end) {
     return;
   }
   float speed = std::min(8.5f, distance * 0.045f);
-  ball.prevPosition = Subtract(ball.position,
-                               Multiply(shot, speed / distance));
+  ball.prevPosition = Subtract(ball.position, Multiply(shot, speed / distance));
 }
 
 void ResetGame(std::vector<Ball> &balls, std::vector<int> &numbers,
@@ -38,11 +37,11 @@ void ResetGame(std::vector<Ball> &balls, std::vector<int> &numbers,
   Vector2D rackOrigin = {table.x + table.width * 0.72f,
                          table.y + table.height * 0.5f};
   const float spacing = BallRadius * 2.05f;
-  const std::array<int, 15> rackNumbers = {
-      1, 9, 2, 10, 8, 11, 3, 12, 4, 13, 5, 14, 6, 15, 7};
+  const std::array<int, 15> rackNumbers = {1, 9,  2, 10, 8, 11, 3, 12,
+                                           4, 13, 5, 14, 6, 15, 7};
 
   const std::array<Color, 15> colors = {
-      YELLOW, BLUE, RED, PURPLE, ORANGE, GREEN, MAROON, GOLD,
+      YELLOW,   BLUE, RED,     PURPLE,  ORANGE,    GREEN,  MAROON, GOLD,
       DARKBLUE, LIME, MAGENTA, SKYBLUE, DARKGREEN, VIOLET, BROWN};
   for (int row = 0; row < 5; ++row) {
     for (int column = 0; column <= row; ++column) {
@@ -50,7 +49,10 @@ void ResetGame(std::vector<Ball> &balls, std::vector<int> &numbers,
       Vector2D position = {rackOrigin.x + row * spacing,
                            rackOrigin.y + (column - row * 0.5f) * spacing};
       balls.push_back(
-          {position, position, {0.0f, 0.0f}, BallRadius,
+          {position,
+           position,
+           {0.0f, 0.0f},
+           BallRadius,
            rackNumbers[rackIndex] == 8 ? BLACK : colors[rackIndex]});
       numbers.push_back(rackNumbers[rackIndex]);
     }
@@ -59,7 +61,7 @@ void ResetGame(std::vector<Ball> &balls, std::vector<int> &numbers,
 
 bool AllStopped(const std::vector<Ball> &balls) {
   for (const Ball &ball : balls) {
-    if (!isBallStopped(const_cast<Ball &>(ball))) {
+    if (!isBallStopped(ball)) {
       return false;
     }
   }
@@ -114,7 +116,13 @@ int main() {
   Vector2D dragStart = {0.0f, 0.0f};
   int pocketed = 0;
   int shots = 0;
+  int currentPlayer = 0;
+  std::array<int, 2> playerGroups = {0, 0};
+  bool shotInProgress = false;
+  bool pocketedOwnBall = false;
   bool cueScratch = false;
+  bool gameOver = false;
+  bool eightBallWon = false;
 
   while (!WindowShouldClose()) {
     Vector2 mouse = GetMousePosition();
@@ -126,11 +134,17 @@ int main() {
       ResetGame(balls, numbers, table);
       pocketed = 0;
       shots = 0;
+      currentPlayer = 0;
+      playerGroups = {0, 0};
+      shotInProgress = false;
+      pocketedOwnBall = false;
       cueScratch = false;
+      gameOver = false;
+      eightBallWon = false;
       aiming = false;
     }
 
-    if (stopped && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
+    if (stopped && !gameOver && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
         LengthSqr(Subtract(mousePos, cueBall.position)) <=
             cueBall.radius * cueBall.radius) {
       aiming = true;
@@ -142,6 +156,9 @@ int main() {
       if (shotLength > 8.0f) {
         ShootBall(cueBall, dragStart, mousePos);
         ++shots;
+        shotInProgress = true;
+        pocketedOwnBall = false;
+        cueScratch = false;
       }
       aiming = false;
     }
@@ -188,12 +205,32 @@ int main() {
                              table.y + table.height * 0.5f};
             ball.prevPosition = ball.position;
           } else {
+            int ballGroup = numbers[index] == 8 ? 3 : numbers[index] <= 7 ? 1 : 2;
+            if (ballGroup == 3) {
+              eightBallWon = pocketed == 14;
+              gameOver = true;
+            } else {
+              if (playerGroups[currentPlayer] == 0) {
+                playerGroups[currentPlayer] = ballGroup;
+                playerGroups[1 - currentPlayer] = 3 - ballGroup;
+              }
+              if (playerGroups[currentPlayer] == ballGroup) {
+                pocketedOwnBall = true;
+              }
+            }
             ball.radius = 0.0f;
             ++pocketed;
           }
           break;
         }
       }
+    }
+
+    if (shotInProgress && stopped && !aiming) {
+      if (cueScratch || !pocketedOwnBall) {
+        currentPlayer = 1 - currentPlayer;
+      }
+      shotInProgress = false;
     }
 
     BeginDrawing();
@@ -215,9 +252,11 @@ int main() {
 
     DrawText("Pool Game", 72, 66, 24, RAYWHITE);
     DrawText("PHYSICS PLAYGROUND", 75, 92, 11, {164, 199, 173, 255});
-    DrawText(TextFormat("BALLS  %02i", pocketed), 930, 68, 16, RAYWHITE);
-    DrawText(TextFormat("SHOTS  %02i", shots), 1030, 68, 16,
+    DrawText(TextFormat("BALLS  %02i", pocketed), 910, 68, 16, RAYWHITE);
+    DrawText(TextFormat("SHOTS  %02i", shots), 1010, 68, 16,
              {216, 224, 210, 255});
+    DrawText(TextFormat("PLAYER %i", currentPlayer + 1), 930, 92, 13,
+         {216, 161, 82, 255});
 
     if (aiming) {
       Vector2D shot = Subtract(dragStart, mousePos);
@@ -242,10 +281,11 @@ int main() {
     }
 
     const char *status =
-        cueScratch       ? "SCRATCH  |  Cue ball reset  |  Press R to restart"
-        : pocketed == 15 ? "TABLE CLEARED  |  Press R for a new rack"
-        : aiming         ? "SET POWER  |  Release to break"
-                         : "Click the cue ball, pull back, release to shoot";
+      gameOver         ? (eightBallWon ? "PLAYER WINS  |  Press R for a new rack"
+               : "8-BALL FOUL  |  Press R for a new rack")
+      : cueScratch      ? "SCRATCH  |  Turn passes to the other player"
+      : aiming          ? "SET POWER  |  Release to shoot"
+               : "Click the cue ball, pull back, release to shoot";
     DrawText(status, 72, 742, 14, {209, 218, 207, 255});
     EndDrawing();
   }

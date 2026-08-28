@@ -47,7 +47,7 @@ void ConstrainVerlet(Ball &ball, float restitution, float minX, float minY,
   }
 }
 
-bool isBallStopped(Ball &ball, float threshold) {
+bool isBallStopped(const Ball &ball, float threshold) {
   Vector2D vel = Subtract(ball.position, ball.prevPosition);
 
   return LengthSqr(vel) < (threshold * threshold);

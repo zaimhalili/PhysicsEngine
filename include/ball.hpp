@@ -15,6 +15,6 @@ struct Ball {
 void UpdateVerlet(Ball& ball, float dt, float friction);
 void ConstrainVerlet(Ball &ball, float restitution, float minX, float minY,
                      float maxX, float maxY);
-bool isBallStopped(Ball& b1, float threshold = 0.5f);
+bool isBallStopped(const Ball& b1, float threshold = 0.5f);
 
 #endif // !BALL_HPP
