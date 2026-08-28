@@ -1,6 +1,8 @@
 #include "../include/ball.hpp"
+#include "../include/grid.hpp"
 #include "../include/physics.hpp"
 #include "raylib.h"
+#include <vector>
 
 void ShootBall(Ball &ball, Vector2D startPos, Vector2D endPos,
                float powerMultiplier) {
@@ -10,21 +12,27 @@ void ShootBall(Ball &ball, Vector2D startPos, Vector2D endPos,
 }
 
 int main() {
-  const int screenWidth = 1400;
-  const int screenHeight = 1100;
-  const float dt = 1.0f / 60.0f;
+  const int screenWidth = 1200;
+  const int screenHeight = 800;
+  const float CELL_SIZE = 32.0f;
   const float friction = 0.99f;
   const float restitution = 0.6f;
 
   InitWindow(screenWidth, screenHeight, "Modular Physics Engine");
   SetTargetFPS(60);
 
-  const Rectangle table = {100.0f, 100.0f, 1200.0f, 900.0f};
+  // Define table inside screen dimensions
+  const Rectangle table = {50.0f, 50.0f, 1100.0f, 700.0f};
+
+  // Instantiate spatial grid matching table bounds
+  Grid grid(table.width, table.height, CELL_SIZE, table.x, table.y);
+
+  std::vector<Ball *> candidates;
+  candidates.reserve(16);
 
   Ball whiteBall = {
-      {300.0f, 550.0f}, {300.0f, 550.0f}, {0.0f, 0.0f}, 15.0f, WHITE};
-  Ball redBall = {
-      {700.0f, 550.0f}, {700.0f, 550.0f}, {0.0f, 0.0f}, 15.0f, RED};
+      {300.0f, 400.0f}, {300.0f, 400.0f}, {0.0f, 0.0f}, 15.0f, WHITE};
+  Ball redBall = {{700.0f, 400.0f}, {700.0f, 400.0f}, {0.0f, 0.0f}, 15.0f, RED};
 
   // Top-left pocket placed inside the table boundary
   Pocket topLeftPocket = {{table.x + 25.0f, table.y + 25.0f}, 20.0f};
@@ -34,16 +42,14 @@ int main() {
   Vector2D dragStart = {0.0f, 0.0f};
   bool redBallActive = true;
 
-
-
   while (!WindowShouldClose()) {
-    // Aim Trajectory
     bool cueBallStopped = isBallStopped(whiteBall);
     bool redBallStopped = !redBallActive || isBallStopped(redBall);
 
     Vector2D mousePos = {GetMousePosition().x, GetMousePosition().y};
 
-    if (cueBallStopped && redBallStopped && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+    if (cueBallStopped && redBallStopped &&
+        IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
       if (LengthSqr(Subtract(mousePos, whiteBall.position)) <=
           whiteBall.radius * whiteBall.radius) {
         selectedBall = &whiteBall;
@@ -62,47 +68,63 @@ int main() {
         selectedBall != nullptr) {
       float powerMultiplier = 0.06f;
       ShootBall(*selectedBall, dragStart, mousePos, powerMultiplier);
-
       isDragging = false;
       selectedBall = nullptr;
     }
 
-    float force = 200.0f;
-    if (IsKeyDown(KEY_RIGHT))
-      whiteBall.acceleration.x += force;
-    if (IsKeyDown(KEY_LEFT))
-      whiteBall.acceleration.x -= force;
-    if (IsKeyDown(KEY_UP))
-      whiteBall.acceleration.y -= force;
-    if (IsKeyDown(KEY_DOWN))
-      whiteBall.acceleration.y += force;
+    // Manual acceleration input for testing
+    // float force = 200.0f;
+    // if (IsKeyDown(KEY_RIGHT))
+    //   whiteBall.acceleration.x += force;
+    // if (IsKeyDown(KEY_LEFT))
+    //   whiteBall.acceleration.x -= force;
+    // if (IsKeyDown(KEY_UP))
+    //   whiteBall.acceleration.y -= force;
+    // if (IsKeyDown(KEY_DOWN))
+    //   whiteBall.acceleration.y += force;
 
-    UpdateVerlet(whiteBall, dt, friction);
-    if (redBallActive) {
-      UpdateVerlet(redBall, dt, friction);
-    }
+    // Spatial grid for better efficiency
+    const int SUB_STEPS = 8;
+    const float dt =
+        (GetFrameTime() > 0.2f ? 0.016f : GetFrameTime()) / SUB_STEPS;
 
-    const int subSteps = 4;
-    for (int i = 0; i < subSteps; ++i) {
+    for (int step = 0; step < SUB_STEPS; ++step) {
+
+      grid.Clear();
+
+      std::vector<Ball *> activeBalls;
+      activeBalls.push_back(&whiteBall);
       if (redBallActive) {
-        ResolveBallCollision(whiteBall, redBall);
-        ConstrainVerlet(redBall, restitution, table.x, table.y,
-                        table.x + table.width, table.y + table.height);
+        activeBalls.push_back(&redBall);
+      }
 
-        // Keep inside table bounds
-        if (redBall.position.x - redBall.radius < table.x) {
-          redBall.position.x = table.x + redBall.radius;
-        }
-        if (redBall.position.y - redBall.radius < table.y) {
-          redBall.position.y = table.y + redBall.radius;
-        }
+      for (Ball *ball : activeBalls) {
+        UpdateVerlet(*ball, dt, friction);
+        grid.Insert(*ball);
+      }
 
-        if (CheckPocketCollision(redBall, topLeftPocket)) {
-          redBallActive = false;
-          if (selectedBall == &redBall) {
-            isDragging = false;
-            selectedBall = nullptr;
+      for (Ball *ball : activeBalls) {
+        grid.GetPossibleCollisions(*ball, candidates);
+
+        for (Ball *neighbor : candidates) {
+          // Avoid testing the same pair twice using address comparison
+          if (neighbor > ball) {
+            ResolveBallCollision(*ball, *neighbor);
           }
+        }
+      }
+
+      for (Ball *ball : activeBalls) {
+        ConstrainVerlet(*ball, restitution, table.x, table.y,
+                        table.x + table.width, table.y + table.height);
+      }
+
+      // Pocket collisions
+      if (redBallActive && CheckPocketCollision(redBall, topLeftPocket)) {
+        redBallActive = false;
+        if (selectedBall == &redBall) {
+          isDragging = false;
+          selectedBall = nullptr;
         }
       }
 
@@ -111,21 +133,10 @@ int main() {
                               table.y + table.height / 2.0f};
         whiteBall.prevPosition = whiteBall.position;
       }
-
-      ConstrainVerlet(whiteBall, restitution, table.x, table.y,
-                      table.x + table.width, table.y + table.height);
-
-      // Keep inside table bounds
-      if (whiteBall.position.x - whiteBall.radius < table.x) {
-        whiteBall.position.x = table.x + whiteBall.radius;
-      }
-      if (whiteBall.position.y - whiteBall.radius < table.y) {
-        whiteBall.position.y = table.y + whiteBall.radius;
-      }
     }
 
     BeginDrawing();
-    ClearBackground(DARKBLUE); // Wooden frame around table
+    ClearBackground(DARKBLUE);
 
     // Draw Table Felt Area
     DrawRectangleRec(table, SKYBLUE);
@@ -139,8 +150,9 @@ int main() {
                     static_cast<int>(topLeftPocket.position.y),
                     topLeftPocket.radius + 6.0f, GRAY);
 
-    
-    if (cueBallStopped && redBallStopped && isDragging && selectedBall != nullptr) {
+    // Draw Aim Indicator
+    if (cueBallStopped && redBallStopped && isDragging &&
+        selectedBall != nullptr) {
       Vector2D ballPos = selectedBall->position;
       DrawLineEx({ballPos.x, ballPos.y}, {mousePos.x, mousePos.y}, 5.0f, WHITE);
 
@@ -150,7 +162,7 @@ int main() {
                  LIGHTGRAY);
     }
 
-    // Draw Balls
+    // Draw Active Balls
     DrawCircleV({whiteBall.position.x, whiteBall.position.y}, whiteBall.radius,
                 whiteBall.color);
 
@@ -159,7 +171,7 @@ int main() {
                   redBall.color);
     }
 
-    DrawFPS(10, screenHeight - 20);
+    DrawFPS(10, screenHeight - 30);
     EndDrawing();
   }
 

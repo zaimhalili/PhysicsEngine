@@ -1,10 +1,10 @@
 #include "../include/grid.hpp"
 
-Grid::Grid(float tableWidth, float tableHeight, float cellSize, float originX,
+Grid::Grid(int tableWidth, int tableHeight, float cellSize, float originX,
            float originY)
     : cellSize(cellSize), originX(originX), originY(originY) {
-  cols = static_cast<int>(std::ceil(tableWidth / cellSize)); // round up
-  rows = static_cast<int>(std::ceil(tableHeight / cellSize));
+  cols = std::ceil(tableWidth / cellSize); // round up
+  rows = std::ceil(tableHeight / cellSize);
 
   cells.resize(cols * rows);
   for (auto &bucket : cells) {

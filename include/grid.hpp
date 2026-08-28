@@ -3,8 +3,6 @@
 
 #include "ball.hpp"
 #include "vector2.hpp"
-#include <algorithm>
-#include <cmath>
 #include <utility>
 #include <vector>
 
@@ -21,7 +19,7 @@ private:
   int GetCellIndex(int row, int col) const;
 
 public:
-  Grid(float tableWidth, float tableHeight, float cellSize,
+  Grid(int tableWidth, int tableHeight, float cellSize,
        float originX = 0.0f, float originY = 0.0f);
 
   void Clear();
